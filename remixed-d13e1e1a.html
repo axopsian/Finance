@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dispatch — Task List</title>
+<style>
+
+
+  :root {
+    --bg: #0d0d0f;
+    --surface: #141416;
+    --border: #232328;
+    --accent: #c4b5fd;
+    --accent-dim: rgba(196,181,253,0.12);
+    --text: #e8e8e8;
+    --muted: #555;
+    --done: #2a2a2e;
+    --done-text: #444;
+    --tag-bg: #1a1a1f;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: Palatino, 'Palatino Linotype', 'Book Antiqua', serif;
+    font-weight: 300;
+    min-height: 100vh;
+    padding: 2rem 1rem 4rem;
+  }
+
+  header {
+    max-width: 780px;
+    margin: 0 auto 2.5rem;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 1.5rem;
+  }
+
+  .dispatch-label {
+    font-family: Palatino, 'Palatino Linotype', 'Book Antiqua', serif;
+    font-size: 0.75rem;
+    letter-spacing: 0.2em;
+    color: var(--accent);
+    text-transform: uppercase;
+    margin-bottom: 0.5rem;
+  }
+
+  h1 { display: none; }
+
+  .glass-title {
+    margin-bottom: 1rem;
+    line-height: 0;
+  }
+
+  .glass-title svg { overflow: visible; display: block; }
+
+  @keyframes prism-pill {
+    0%   { stop-color: rgba(196,181,253,0.55); }
+    25%  { stop-color: rgba(147,197,253,0.55); }
+    50%  { stop-color: rgba(251,191,201,0.55); }
+    75%  { stop-color: rgba(167,243,208,0.55); }
+    100% { stop-color: rgba(196,181,253,0.55); }
+  }
+  @keyframes glow-pulse {
+    0%,100% { filter: drop-shadow(0 4px 14px rgba(196,181,253,0.3)) drop-shadow(0 0 6px rgba(196,181,253,0.2)); }
+    33%      { filter: drop-shadow(0 4px 18px rgba(147,197,253,0.45)) drop-shadow(0 0 10px rgba(147,197,253,0.3)); }
+    66%      { filter: drop-shadow(0 4px 18px rgba(251,191,201,0.4)) drop-shadow(0 0 10px rgba(251,191,201,0.25)); }
+  }
+
+  .meta {
+    margin-top: 0.75rem;
+    font-size: 0.8rem;
+    color: var(--muted);
+    font-family: Palatino, 'Palatino Linotype', 'Book Antiqua', serif;
+    display: flex;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+  }
+
+  .meta span { color: var(--accent); }
+
+  .progress-bar {
+    max-width: 780px;
+    margin: 0 auto 2rem;
+    height: 3px;
+    background: var(--border);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .progress-fill {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 2px;
+    transition: width 0.4s ease;
+    width: 0%;
+  }
+
+  .progress-label {
+    max-width: 780px;
+    margin: 0 auto 2rem;
+    font-family: Palatino, 'Palatino Linotype', 'Book Antiqua', serif;
+    font-size: 0.78rem;
+    color: var(--muted);
+    display: flex;
+    justify-content: space-between;
+    margin-top: -1.5rem;
+    padding-top: 0.5rem;
+  }
+
+  .section {
+    max-width: 780px;
+    margin: 0 auto 2rem;
+  }
+
+  .section-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+    padding: 0.4rem 0;
+  }
+
+  .section-icon { font-size: 1rem; }
+
+  .section-title {
+    font-family: Palatino, 'Palatino Linotype', 'Book Antiqua', serif;
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .section-count {
+    margin-left: auto;
+    font-family: Palatino, 'Palatino Linotype', 'Book Antiqua', serif;
+    font-size: 0.75rem;
+    color: var(--muted);
+  }
+
+  .task-list { display: flex; flex-direction: column; gap: 6px; }
+
+  @keyframes prism-sweep {
+    0%   { transform: translateX(-120%) skewX(-20deg); opacity: 0; }
+    10%  { opacity: 1; }
+    90%  { opacity: 1; }
+    100% { transform: translateX(220%) skewX(-20deg); opacity: 0; }
+  }
+  @keyframes prism-sweep2 {
+    0%   { transform: translateX(-120%) skewX(-15deg); opacity: 0; }
+    10%  { opacity: 0.7; }
+    90%  { opacity: 0.7; }
+    100% { transform: translateX(220%) skewX(-15deg); opacity: 0; }
+  }
+  @keyframes shimmer-pulse {
+    0%, 100% { opacity: 0.4; }
+    50%       { opacity: 0.9; }
+  }
+
+  .task {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.28rem 1rem;
+    background: linear-gradient(
+      160deg,
+      rgba(255,255,255,0.13) 0%,
+      rgba(196,181,253,0.08) 30%,
+      rgba(147,197,253,0.07) 55%,
+      rgba(251,191,201,0.06) 75%,
+      rgba(167,243,208,0.05) 100%
+    );
+    border: 1px solid rgba(255,255,255,0.22);
+    border-bottom-color: rgba(100,80,200,0.3);
+    border-right-color: rgba(100,80,200,0.18);
+    border-radius: 999px;
+    cursor: pointer;
+    backdrop-filter: blur(20px) saturate(200%);
+    -webkit-backdrop-filter: blur(20px) saturate(200%);
+    box-shadow:
+      inset 0 2px 3px rgba(255,255,255,0.22),
+      inset 0 -2px 3px rgba(0,0,0,0.28),
+      inset 1px 0 2px rgba(255,255,255,0.08),
+      inset -1px 0 2px rgba(0,0,0,0.12),
+      0 5px 18px rgba(0,0,0,0.45),
+      0 1px 3px rgba(0,0,0,0.5),
+      0 0 0 0.5px rgba(255,255,255,0.08);
+    transition: all 0.22s ease;
+    user-select: none;
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* top lens shine */
+  .task::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 8%; right: 8%;
+    height: 50%;
+    border-radius: 999px 999px 70% 70%;
+    background: linear-gradient(
+      180deg,
+      rgba(255,255,255,0.22) 0%,
+      rgba(255,255,255,0.06) 55%,
+      transparent 100%
+    );
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  /* animated prism light sweep */
+  .task::after {
+    content: '';
+    position: absolute;
+    top: -10%; bottom: -10%;
+    left: 0; width: 55%;
+    background: linear-gradient(
+      105deg,
+      transparent 0%,
+      rgba(196,181,253,0.0) 15%,
+      rgba(196,181,253,0.18) 30%,
+      rgba(147,197,253,0.22) 42%,
+      rgba(167,243,208,0.16) 54%,
+      rgba(251,191,201,0.18) 66%,
+      rgba(255,220,180,0.10) 78%,
+      transparent 100%
+    );
+    pointer-events: none;
+    z-index: 1;
+    animation: prism-sweep 5s ease-in-out infinite;
+    animation-delay: var(--prism-delay, 0s);
+  }
+
+  /* second offset prism streak */
+  .task .prism2 {
+    position: absolute;
+    top: -10%; bottom: -10%;
+    left: 0; width: 30%;
+    background: linear-gradient(
+      112deg,
+      transparent 0%,
+      rgba(251,191,201,0.0) 20%,
+      rgba(251,191,201,0.12) 40%,
+      rgba(196,181,253,0.15) 55%,
+      rgba(147,197,253,0.10) 70%,
+      transparent 100%
+    );
+    pointer-events: none;
+    z-index: 1;
+    animation: prism-sweep2 5s ease-in-out infinite;
+    animation-delay: var(--prism-delay2, 0.6s);
+  }
+
+  .task:hover {
+    border-color: rgba(255,255,255,0.32);
+    border-bottom-color: rgba(140,100,220,0.4);
+    background: linear-gradient(
+      160deg,
+      rgba(255,255,255,0.18) 0%,
+      rgba(196,181,253,0.13) 30%,
+      rgba(147,197,253,0.11) 55%,
+      rgba(251,191,201,0.10) 75%,
+      rgba(167,243,208,0.08) 100%
+    );
+    box-shadow:
+      inset 0 2px 4px rgba(255,255,255,0.28),
+      inset 0 -2px 4px rgba(0,0,0,0.3),
+      inset 1px 0 3px rgba(255,255,255,0.10),
+      inset -1px 0 3px rgba(0,0,0,0.14),
+      0 8px 28px rgba(0,0,0,0.5),
+      0 2px 6px rgba(0,0,0,0.4),
+      0 0 0 0.5px rgba(255,255,255,0.13),
+      0 0 24px rgba(196,181,253,0.13);
+    transform: translateY(-2px) scale(1.004);
+  }
+
+  .task:active {
+    transform: translateY(1px) scale(0.998);
+    box-shadow:
+      inset 0 4px 8px rgba(0,0,0,0.35),
+      inset 0 -1px 2px rgba(255,255,255,0.07),
+      0 1px 4px rgba(0,0,0,0.45);
+  }
+
+  .task.done {
+    background: linear-gradient(160deg, rgba(28,28,36,0.75), rgba(20,20,28,0.75));
+    border-color: rgba(255,255,255,0.05);
+    box-shadow:
+      inset 0 2px 5px rgba(0,0,0,0.35),
+      0 2px 6px rgba(0,0,0,0.2);
+    transform: none;
+  }
+
+  .task.done::before,
+  .task.done::after,
+  .task.done .prism2 { opacity: 0; }
+
+  .task.done .task-text {
+    text-decoration: line-through;
+    color: var(--done-text);
+  }
+
+  .task.done .task-num { color: var(--done-text); }
+
+  .checkbox {
+    width: 16px;
+    height: 16px;
+    min-width: 16px;
+    border: 1.5px solid var(--muted);
+    border-radius: 3px;
+    margin-top: 1px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: border-color 0.15s, background 0.15s;
+  }
+
+  .task.done .checkbox {
+    border-color: var(--accent);
+    background: var(--accent);
+  }
+
+  .checkmark {
+    display: none;
+    width: 9px;
+    height: 9px;
+    stroke: #0d0d0f;
+    stroke-width: 2.5;
+    fill: none;
+  }
+
+  .task.done .checkmark { display: block; }
+
+  .task-num {
+    font-family: Palatino, 'Palatino Linotype', 'Book Antiqua', serif;
+    font-size: 0.72rem;
+    color: var(--muted);
+    min-width: 22px;
+    padding-top: 1px;
+  }
+
+  .task-text {
+    font-family: Palatino, 'Palatino Linotype', 'Book Antiqua', serif;
+    font-size: 0.9rem;
+    line-height: 1.5;
+    color: var(--text);
+    transition: color 0.15s;
+  }
+
+  .tag {
+    display: inline-block;
+    font-family: Palatino, 'Palatino Linotype', 'Book Antiqua', serif;
+    font-size: 0.65rem;
+    padding: 1px 8px;
+    border-radius: 999px;
+    background: rgba(196,181,253,0.08);
+    border: 1px solid rgba(196,181,253,0.2);
+    color: var(--accent);
+    margin-left: 0.5rem;
+    vertical-align: middle;
+    white-space: nowrap;
+  }
+
+  footer {
+    max-width: 780px;
+    margin: 3rem auto 0;
+    font-family: Palatino, 'Palatino Linotype', 'Book Antiqua', serif;
+    font-size: 0.75rem;
+    color: var(--muted);
+    border-top: 1px solid var(--border);
+    padding-top: 1rem;
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="dispatch-label">⬡ Dispatch — Task Queue</div>
+  <h1>Master Task List</h1>
+  <div class="glass-title" id="glass-title"></div>
+  <div class="meta">
+    Generated: <span id="date-label"></span> &nbsp;|&nbsp; Tasks: <span id="total-label">43</span> &nbsp;|&nbsp; Done: <span id="done-label">0</span>
+  </div>
+</header>
+
+<div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
+<div class="progress-label"><span id="pct-label">0% complete</span><span id="remaining-label">43 remaining</span></div>
+
+<div id="app"></div>
+
+<footer>
+  <span>Click any task to mark complete</span>
+  <span id="footer-done">0 / 43 tasks done</span>
+</footer>
+
+<script>
+const sections = [
+  {
+    icon: "📊", title: "Investor & Research", tasks: [
+      { id:1, text: "Research GAC Energy and prepare investor meeting brief", tag: "8th/13th" },
+      { id:2, text: "Research SPC as a company and prepare investor meeting brief", tag: "8th/13th" },
+      { id:3, text: "Estimate costs for GEC Energy deal" },
+    ]
+  },
+  {
+    icon: "🏨", title: "RoomQuest / Hotel Revenue Management", tasks: [
+      { id:4, text: "Prepare revenue management system for RoomQuest and all hotel chains" },
+      { id:5, text: "Create list of documents needed for financial data validation (Cloudbeds PMS)" },
+      { id:6, text: "Create list of point-of-contacts for hotel financial data" },
+      { id:7, text: "Get all hardware costs from hotel manager (UE) and send her a progress summary" },
+      { id:8, text: "Start a hardware costs list" },
+      { id:9, text: "Write SOPs for RoomQuest revenue, their finances, joint venture finances, and company finances" },
+    ]
+  },
+  {
+    icon: "🏗️", title: "Entity Structure & Legal", tasks: [
+      { id:10, text: "Create step-by-step task list for setting up the multi-entity 3-layer structure for Thailand SVV" },
+      { id:11, text: "Contact the list of lawyers — discuss payment schedule deal" },
+      { id:12, text: "Reach out to accountants regarding international taxation structures" },
+      { id:13, text: "Figure out tax deadlines for the company" },
+      { id:14, text: "Confirm June 1st franchise tax is paid (or ensure funds are available)", tag: "Jun 1" },
+    ]
+  },
+  {
+    icon: "💰", title: "Finance & Accounting", tasks: [
+      { id:15, text: "Map out cash runway — $600 operating expenses, clearly listed" },
+      { id:16, text: "Budget allocation for remaining payments" },
+      { id:17, text: "4x conversion fees with adjustments" },
+      { id:18, text: "Founders revenue share adjustments — calculate who owes whom" },
+      { id:19, text: "Upload all founder receipts from the last two weeks and match to bank transactions" },
+      { id:20, text: "Add reimbursements into the bank" },
+      { id:21, text: "Add dynamic conversion formulas and formatting to Google Sheets" },
+      { id:22, text: "Figure out why Google Workspace costs are so high" },
+    ]
+  },
+  {
+    icon: "👥", title: "Hiring & Contractors", tasks: [
+      { id:23, text: "Calculate how much Corey can be paid — determine viability of hire" },
+      { id:24, text: "Figure out timing, payment portions, and monthly max budget for Oodles (dev team)" },
+    ]
+  },
+  {
+    icon: "📱", title: "Subscriptions & Tech Stack", tasks: [
+      { id:25, text: "Finalize tech stack subscription cards" },
+      { id:26, text: "Subscribe to Claude Enterprise plan" },
+      { id:27, text: "Follow up with other 2 founders on their subscriptions and tools" },
+      { id:28, text: "Consolidate personal subscriptions into team plans for ones to keep" },
+    ]
+  },
+  {
+    icon: "📣", title: "Marketing & Comms", tasks: [
+      { id:29, text: "Follow up with marketing and social media manager" },
+      { id:30, text: "Apply for all perks listed in the group chat" },
+      { id:31, text: "Review all group chat messages and follow up on them" },
+    ]
+  },
+  {
+    icon: "📅", title: "Calendar & Admin", tasks: [
+      { id:32, text: "Reschedule all calendar events for this week and send reminders", tag: "this week" },
+      { id:33, text: "Log all items, dates, and statuses for the last two weeks (completed + in progress) into a master document" },
+      { id:34, text: "Log priorities in a master document" },
+    ]
+  },
+  {
+    icon: "✈️", title: "Travel", tasks: [
+      { id:35, text: "Confirm all travel agency bookings are canceled" },
+      { id:36, text: "Confirm all client refunds are processed" },
+    ]
+  },
+  {
+    icon: "📁", title: "Grants & Documents", tasks: [
+      { id:37, text: "Make a list of grants to apply for" },
+      { id:38, text: "Share relevant documents with all team members" },
+      { id:39, text: "Reorganize Google Drive — remove redundant files" },
+    ]
+  },
+  {
+    icon: "🗓️", title: "Meetings", tasks: [
+      { id:40, text: "Create meeting agendas for the week", tag: "this week" },
+      { id:41, text: "Create agenda for finance review meeting" },
+    ]
+  },
+  {
+    icon: "📋", title: "Projects", tasks: [
+      { id:42, text: "Make a pitch deck — confirm topic and purpose" },
+      { id:43, text: "Estimates for Omnix contract milestones 1–13" },
+    ]
+  },
+];
+
+const done = new Set(JSON.parse(localStorage.getItem('dispatch_done') || '[]'));
+const total = sections.reduce((a, s) => a + s.tasks.length, 0);
+
+function save() { localStorage.setItem('dispatch_done', JSON.stringify([...done])); }
+function update() {
+  const d = done.size;
+  document.getElementById('done-label').textContent = d;
+  document.getElementById('progress-fill').style.width = (d/total*100) + '%';
+  document.getElementById('pct-label').textContent = Math.round(d/total*100) + '% complete';
+  document.getElementById('remaining-label').textContent = (total - d) + ' remaining';
+  document.getElementById('footer-done').textContent = d + ' / ' + total + ' tasks done';
+  document.querySelectorAll('.section-count').forEach(el => {
+    const sec = el.dataset.sec;
+    const sectionTasks = sections[sec].tasks;
+    const secDone = sectionTasks.filter(t => done.has(t.id)).length;
+    el.textContent = secDone + '/' + sectionTasks.length;
+  });
+}
+
+function toggle(id) {
+  if (done.has(id)) done.delete(id); else done.add(id);
+  save();
+  const el = document.querySelector('[data-task="'+id+'"]');
+  el.classList.toggle('done', done.has(id));
+  update();
+}
+
+const app = document.getElementById('app');
+sections.forEach((section, si) => {
+  const div = document.createElement('div');
+  div.className = 'section';
+  div.innerHTML = `
+    <div class="section-header">
+      <span class="section-icon">${section.icon}</span>
+      <span class="section-title">${section.title}</span>
+      <span class="section-count" data-sec="${si}">0/${section.tasks.length}</span>
+    </div>
+    <div class="task-list">
+      ${section.tasks.map(t => {
+        const d1 = (t.id * 1.37 % 5).toFixed(2);
+        const d2 = (t.id * 0.91 % 5).toFixed(2);
+        return `
+        <div class="task${done.has(t.id)?' done':''}" data-task="${t.id}" onclick="toggle(${t.id})"
+             style="--prism-delay:${d1}s;--prism-delay2:${d2}s;">
+          <div class="prism2"></div>
+          <div class="checkbox">
+            <svg class="checkmark" viewBox="0 0 10 10"><polyline points="1.5,5 4,7.5 8.5,2"/></svg>
+          </div>
+          <span class="task-num">${String(t.id).padStart(2,'0')}</span>
+          <span class="task-text">${t.text}${t.tag ? `<span class="tag">${t.tag}</span>` : ''}</span>
+        </div>`;
+      }).join('')}
+    </div>
+  `;
+  app.appendChild(div);
+});
+
+
+// ── Glass-pill letter renderer ──────────────────────────────────────────
+// Each letter is defined as a list of pill segments: [x1,y1, x2,y2]
+// Coordinates are on a 0–10 wide × 0–14 tall grid per character.
+// A pill is drawn as a rounded stroke (stroke-linecap: round) with width=2.6.
+
+const PW = 6.5;
+const GH = 36;
+const GW = 24;
+const GAP = 7;
+const LINE_GAP = 14;
+
+// [x1,y1,x2,y2] segments on a 10×14 grid
+const GLYPHS = {
+  M: [[0,14,0,0],[0,0,5,7],[5,7,10,0],[10,0,10,14]],
+  A: [[0,14,5,0],[5,0,10,14],[2,9,8,9]],
+  S: [[9,2,5,0],[5,0,1,0],[1,0,1,6],[1,6,9,6],[9,6,9,12],[9,12,5,14],[5,14,1,14],[1,14,1,12]],
+  T: [[0,0,10,0],[5,0,5,14]],
+  E: [[9,0,0,0],[0,0,0,14],[0,14,9,14],[0,7,7,7]],
+  R: [[0,14,0,0],[0,0,8,0],[8,0,9,3],[9,3,8,6],[8,6,0,6],[4,6,9,14]],
+  K: [[0,0,0,14],[0,7,9,0],[0,7,9,14]],
+  L: [[0,0,0,14],[0,14,9,14]],
+  I: [[0,0,10,0],[5,0,5,14],[0,14,10,14]],
+  ' ': [],
+};
+
+function pill(x1,y1,x2,y2, sx,sy, delay, colors) {
+  const cx = ((x1+x2)/2/10)*GW+sx;
+  const cy = ((y1+y2)/2/14)*GH+sy;
+  const dx = (x2-x1)/10*GW, dy = (y2-y1)/14*GH;
+  const len = Math.sqrt(dx*dx+dy*dy);
+  const angle = Math.atan2(dy,dx)*180/Math.PI;
+
+  // iridescent color cycling, unique phase per pill
+  const [c1,c2,c3,c4] = colors;
+  const id = `pg_${Math.random().toString(36).slice(2,8)}`;
+
+  return `
+  <g transform="translate(${cx},${cy}) rotate(${angle})">
+    <defs>
+      <linearGradient id="${id}" x1="0%" y1="0%" x2="100%" y2="0%">
+        <stop offset="0%"   stop-color="${c1}" stop-opacity="0.9"/>
+        <stop offset="50%"  stop-color="${c2}" stop-opacity="0.95"/>
+        <stop offset="100%" stop-color="${c3}" stop-opacity="0.9"/>
+      </linearGradient>
+    </defs>
+  <!-- shadow layer -->
+    <line x1="${-len/2}" y1="1.5" x2="${len/2}" y2="1.5"
+      stroke="rgba(0,0,0,0.6)" stroke-width="${PW+3}" stroke-linecap="round"/>
+    <!-- deep body fill -->
+    <line x1="${-len/2}" y1="0" x2="${len/2}" y2="0"
+      stroke="rgba(10,8,30,0.55)" stroke-width="${PW}" stroke-linecap="round"/>
+    <!-- iridescent gradient layer -->
+    <line x1="${-len/2}" y1="0" x2="${len/2}" y2="0"
+      stroke="url(#${id})" stroke-width="${PW}" stroke-linecap="round"
+      style="animation: glow-pulse ${2.8+delay*0.4}s ease-in-out ${delay}s infinite"/>
+    <!-- inner bright core -->
+    <line x1="${-len/2+1.5}" y1="0" x2="${len/2-1.5}" y2="0"
+      stroke="rgba(220,210,255,0.18)" stroke-width="${PW*0.38}" stroke-linecap="round"/>
+    <!-- top shine streak -->
+    <line x1="${-len/2+2}" y1="${-PW*0.22}" x2="${len/2-2}" y2="${-PW*0.22}"
+      stroke="rgba(255,255,255,0.72)" stroke-width="${PW*0.18}" stroke-linecap="round"/>
+    <!-- secondary shimmer line -->
+    <line x1="${-len/2+4}" y1="${-PW*0.05}" x2="${len/2-4}" y2="${-PW*0.05}"
+      stroke="rgba(255,255,255,0.22)" stroke-width="${PW*0.09}" stroke-linecap="round"/>
+    <!-- bottom rim reflection -->
+    <line x1="${-len/2+2}" y1="${PW*0.28}" x2="${len/2-2}" y2="${PW*0.28}"
+      stroke="rgba(100,80,200,0.28)" stroke-width="${PW*0.13}" stroke-linecap="round"/>
+  </g>`;
+}
+
+  const PALETTES = [
+  ['#e0d4ff','#bfdbfe','#c7f9e0','#ffd6e0'],
+  ['#bfdbfe','#ffd6e0','#e0d4ff','#c7f9e0'],
+  ['#c7f9e0','#e0d4ff','#ffd6e0','#bfdbfe'],
+  ['#ffd6e0','#c7f9e0','#bfdbfe','#e0d4ff'],
+];
+
+function renderTitle(text, containerEl) {
+  const chars = text.toUpperCase().split('');
+  let x = 0;
+  let svgPills = '';
+  chars.forEach((ch, ci) => {
+    const segs = GLYPHS[ch] || GLYPHS[' '];
+    segs.forEach((seg, si) => {
+      const delay = ((ci*1.7+si*0.9) % 5).toFixed(2);
+      const pal = PALETTES[(ci+si) % PALETTES.length];
+      svgPills += pill(seg[0],seg[1],seg[2],seg[3], x, 0, parseFloat(delay), pal);
+    });
+    x += (ch === ' ' ? GAP*1.2 : GW + GAP);
+  });
+
+  const totalW = x;
+  const totalH = GH + PW*2 + 6;
+
+  const svg = `<svg width="${totalW}" height="${totalH}" viewBox="0 0 ${totalW} ${totalH}" style="overflow:visible; display:block;">
+    ${svgPills}
+  </svg>`;
+  containerEl.innerHTML = svg;
+}
+
+renderTitle("Master Task List", document.getElementById('glass-title'));
+
+// ── rest of app ─────────────────────────────────────────────────────────
+document.getElementById('date-label').textContent = new Date().toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'});
+update();
+</script>
+</body>
+</html>
